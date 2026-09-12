@@ -1,0 +1,13 @@
+{
+  "name": "OAuth2Helper",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:1-20-bullseye",
+  "postCreateCommand": "npm install",
+  "forwardPorts": [3000],
+  "portsAttributes": {
+    "3000": {
+      "label": "OAuth2Helper",
+      "onAutoForward": "openPreview"
+    }
+  },
+  "postStartCommand": "echo 'Run: npm start (or npm run dev), then open the forwarded port-3000 URL. Copy settings.example.json to settings.json to get started.'"
+}

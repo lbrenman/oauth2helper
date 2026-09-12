@@ -1,0 +1,18 @@
+{
+  "name": "oauth2helper",
+  "version": "1.0.0",
+  "description": "A developer tool for testing and debugging OAuth 2.0 flows - Postman meets SAML-tracer, but for OAuth.",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  },
+  "license": "MIT"
+}

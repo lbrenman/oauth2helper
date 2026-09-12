@@ -1,0 +1,47 @@
+{
+  "activeProfileId": "example-okta-pkce",
+  "profiles": [
+    {
+      "id": "example-okta-pkce",
+      "name": "[Example] Okta - Auth Code + PKCE",
+      "providerType": "okta",
+      "providerName": "Example only - replace with your Okta org",
+      "grantType": "authorization_code",
+      "authUrl": "https://your-org.okta.com/oauth2/v1/authorize",
+      "tokenUrl": "https://your-org.okta.com/oauth2/v1/token",
+      "clientId": "YOUR_OKTA_CLIENT_ID",
+      "clientSecret": "",
+      "redirectUri": "",
+      "scope": "openid profile email",
+      "usePkce": true,
+      "pkceMethod": "S256",
+      "postTokenApiUrl": "",
+      "postTokenApiMethod": "GET",
+      "postTokenApiHeaders": "",
+      "postTokenApiBody": "",
+      "extraAuthParams": "",
+      "extraTokenParams": ""
+    },
+    {
+      "id": "example-keycloak-cc",
+      "name": "[Example] Keycloak - Client Credentials",
+      "providerType": "keycloak",
+      "providerName": "Example only - replace with your Keycloak realm",
+      "grantType": "client_credentials",
+      "authUrl": "https://your-keycloak-host/realms/your-realm/protocol/openid-connect/auth",
+      "tokenUrl": "https://your-keycloak-host/realms/your-realm/protocol/openid-connect/token",
+      "clientId": "YOUR_KEYCLOAK_CLIENT_ID",
+      "clientSecret": "YOUR_KEYCLOAK_CLIENT_SECRET",
+      "redirectUri": "",
+      "scope": "",
+      "usePkce": false,
+      "pkceMethod": "S256",
+      "postTokenApiUrl": "",
+      "postTokenApiMethod": "GET",
+      "postTokenApiHeaders": "",
+      "postTokenApiBody": "",
+      "extraAuthParams": "",
+      "extraTokenParams": ""
+    }
+  ]
+}
