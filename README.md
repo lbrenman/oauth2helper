@@ -250,6 +250,44 @@ Token**, both of which apply the Client-Credentials field-clearing
 rule before rendering the page back. In practice that's one extra
 click, and it's the only spot where the no-JS constraint is visible.
 
+### Optional exception: Browser-Only Test
+
+**Browser-Only Test** (linked in the top bar) is a deliberate, isolated
+exception to the no-JS rule above. It runs Client Credentials and
+Authorization Code + PKCE **entirely in your browser's own
+JavaScript**, bypassing this app's server completely — the same way a
+real public-client SPA would implement these flows itself, with no
+backend of its own to hide a secret behind.
+
+It's useful for two things:
+- **Seeing the CORS wall for yourself.** Client Credentials from a
+  browser is blocked by design on providers like Okta (see the CORS
+  discussion in this repo's docs/commit history) — this page lets you
+  hit that wall directly instead of taking it on faith.
+- **Testing a true public-client PKCE flow**, where no client secret
+  is ever sent, as opposed to the confidential-client-with-optional-
+  PKCE flow the rest of the app uses.
+
+It reads the *active profile's* current settings (read-only on this
+page; edit them on the main page) and **only shows the test matching
+that profile's grant type** — Client Credentials profiles get the
+Client Credentials test, Authorization Code profiles get the PKCE
+test. Switch grant type on the main page and save to see the other one.
+
+The PKCE flow shares the main app's own `/callback` URL — nothing extra
+to register; `/callback` tells the two apart by the `state` value
+(`browsertest`) and hands that one straight to a page that does the
+exchange in the browser instead of on the server.
+
+The server never makes or sees the actual request either way, but each
+script **self-reports its outcome** to `/browser-test/log` right after
+the fetch settles, purely so you get one place to look: those attempts
+show up in the **Debug Trace** on the main page too, labeled
+`browser_test_cc` / `browser_test_pkce`, with a note that the detail
+here is limited (no real request headers, and a CORS block looks
+identical to a plain network failure from JS's point of view — check
+your browser's DevTools Network tab for the actual error).
+
 ## Notes / limitations
 
 - Single-user, local-dev tool: state (pending PKCE/state, the current
@@ -263,3 +301,11 @@ click, and it's the only spot where the no-JS constraint is visible.
   inventing a blank one. If neither file has at least one valid profile,
   the home page fails with a clear error telling you to restore one —
   it won't silently fabricate a profile for you.
+- **Browser-Only Test only**: the Client Credentials test there puts
+  your client secret directly into that page's rendered JavaScript, so
+  it's visible in browser DevTools — that's inherent to what the test
+  demonstrates (a public client can't keep it confidential either).
+  Don't point it at production credentials. A CORS-blocked request also
+  can't be distinguished from a network failure by JS at all (browsers
+  withhold those details from scripts for security reasons); the page
+  says so, but the real error only shows up in DevTools' Network tab.

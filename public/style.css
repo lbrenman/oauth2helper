@@ -77,6 +77,8 @@ a { color: var(--accent); }
 .chevron-btn:hover { color: var(--text); border-color: var(--accent); }
 .chevron-btn.danger { color: var(--err); border-color: var(--err); }
 .chevron-btn.danger:hover { background: rgba(255,92,114,0.1); }
+.chevron-btn.experimental { border-color: rgba(245,166,35,0.5); color: var(--warn); }
+.chevron-btn.experimental:hover { background: rgba(245,166,35,0.1); border-color: var(--warn); }
 
 .flash {
   margin: 14px 16px 0;
@@ -126,6 +128,28 @@ a { color: var(--accent); }
   letter-spacing: normal;
   color: var(--text);
   margin-bottom: 14px;
+}
+.single-column .panel { margin-bottom: 16px; }
+.single-column .panel h2 .badge { vertical-align: middle; margin-left: 8px; text-transform: uppercase; }
+.single-column .panel h3 { font-size: 13.5px; margin: 0 0 8px; color: var(--text); }
+.single-column .panel h3 .icon { margin-right: 4px; }
+
+.experimental-banner { border-color: rgba(245,166,35,0.4); background: rgba(245,166,35,0.06); }
+
+.browser-test-result {
+  margin-top: 10px;
+  font-size: 12.5px;
+}
+.browser-test-result pre {
+  margin: 6px 0 0;
+  padding: 8px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-family: var(--mono);
+  font-size: 11px;
+  white-space: pre-wrap;
+  word-break: break-all;
 }
 
 .panel-header {

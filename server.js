@@ -14,7 +14,7 @@ const crypto = require('crypto');
 const { generateCodeVerifier, generateCodeChallenge, generateState } = require('./src/pkce');
 const trace = require('./src/trace');
 const { analyzeFailure } = require('./src/diagnostics');
-const { renderHomePage, renderHelpPage, renderAboutPage, renderDeleteConfirmPage } = require('./src/render');
+const { renderHomePage, renderHelpPage, renderAboutPage, renderDeleteConfirmPage, renderBrowserTestPage, renderBrowserTestCallbackPage } = require('./src/render');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -352,6 +352,58 @@ app.get('/theme/toggle', (req, res) => {
 });
 
 // ---------------------------------------------------------------------
+// Browser-Only Test — OPTIONAL capability, entirely separate from the
+// server-mediated flows above. This route only ever renders a static
+// page; the actual token requests happen in the browser's own
+// JavaScript (see src/render.js), so this app's server never sees them
+// and they never appear in the Debug Trace.
+//
+// Its PKCE flow shares the main app's /callback URL rather than having
+// a redirect URI of its own — one fewer thing to register on the OAuth
+// client. The two are told apart by the `state` value: the browser-only
+// flow always sends state=browsertest, and /callback checks for that
+// before touching any of its own server-side pending-flow state.
+// ---------------------------------------------------------------------
+
+const BROWSER_TEST_STATE = 'browsertest';
+
+app.get('/browser-test', (req, res) => {
+  let store;
+  try {
+    store = loadStore();
+  } catch (err) {
+    return res.status(500).send(`<pre>${err.message}</pre>`);
+  }
+  const browserCallbackUrl = `${detectBaseUrl(req)}/callback`;
+  res.send(renderBrowserTestPage(pageContext(req, { store, browserCallbackUrl })));
+});
+
+// The browser-only scripts call this after their fetch settles, purely
+// to self-report the outcome so it shows up in the Debug Trace on the
+// main page. This server never made or saw the actual request — it's
+// only logging what the browser tells it happened, which is why these
+// entries always carry a note that the detail here is limited.
+app.post('/browser-test/log', (req, res) => {
+  const statusRaw = req.body.status;
+  const statusNum = statusRaw === undefined || statusRaw === '' ? null : Number(statusRaw);
+  const isFailure = statusNum === null || Number.isNaN(statusNum) || statusNum === 0 || statusNum >= 400;
+  trace.addEntry({
+    type: req.body.type || 'browser_test',
+    method: req.body.method || 'POST',
+    url: req.body.url || '',
+    requestHeaders: { note: 'Sent directly from the browser via client-side JavaScript — not visible to this server.' },
+    requestBody: '(request made entirely client-side; not captured by the server)',
+    responseStatus: Number.isNaN(statusNum) ? null : statusNum,
+    responseHeaders: {},
+    responseBody: req.body.responseBody || '',
+    diagnostics: isFailure
+      ? ["This ran entirely in your browser, bypassing this app's server — it can't see response headers here, or tell a CORS block apart from a plain network failure. Check your browser's DevTools → Network/Console tab for the real error."]
+      : [],
+  });
+  res.status(204).end();
+});
+
+// ---------------------------------------------------------------------
 // Profile management (all operate on the single active profile, except
 // switch/new which change which one is active)
 // ---------------------------------------------------------------------
@@ -499,6 +551,13 @@ app.post('/token/get', async (req, res) => {
 
 app.get('/callback', async (req, res) => {
   const { code, state, error, error_description: errorDescription } = req.query;
+
+  // Browser-Only Test's PKCE flow lands here too (see above) — hand it
+  // straight to its own client-side-exchange page, untouched by any of
+  // the server-side pending-flow logic below.
+  if (state === BROWSER_TEST_STATE) {
+    return res.send(renderBrowserTestCallbackPage(pageContext(req)));
+  }
 
   if (error) {
     trace.addEntry({

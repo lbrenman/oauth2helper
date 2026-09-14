@@ -16,6 +16,10 @@ function attr(str) {
   return escapeHtml(str);
 }
 
+function activeProfile(store) {
+  return store.profiles.find((p) => p.id === store.activeProfileId) || null;
+}
+
 // ---------------------------------------------------------------------
 // Shared page shell
 // ---------------------------------------------------------------------
@@ -51,6 +55,7 @@ function renderTopbar({ theme, returnTo }) {
     <a class="chevron-btn" href="https://datatracker.ietf.org/doc/html/rfc7636" target="_blank" rel="noopener">RFC 7636 (PKCE)</a>
     <a class="chevron-btn" href="https://datatracker.ietf.org/doc/html/rfc7591" target="_blank" rel="noopener">RFC 7591 (DCR)</a>
     <a class="chevron-btn" href="https://datatracker.ietf.org/doc/html/rfc6750" target="_blank" rel="noopener">RFC 6750 (Bearer)</a>
+    <a class="chevron-btn experimental" href="/browser-test" title="Optional: test Client Credentials / Auth Code+PKCE directly from browser JS, bypassing this app's server">${icon('activity')} Browser-Only Test</a>
     <a class="chevron-btn" href="/about">${icon('info')} About</a>
     <a class="chevron-btn" href="/help">${icon('helpCircle')} Settings Help</a>
     <a class="chevron-btn" href="/theme/toggle?return=${encodeURIComponent(returnTo || '/')}" title="Switch to ${themeLabel === 'Light' ? 'dark' : 'light'} mode">${themeIcon}</a>
@@ -211,8 +216,8 @@ function renderProfileBar(store) {
   const canDelete = store.profiles.length > 1;
   return `
     <form method="post" action="/profiles/switch" class="profile-bar">
-      <select name="profileId" title="Switch between saved settings profiles">${options}</select>
-      <button type="submit">Switch</button>
+      <select name="profileId" title="Switch between saved settings profiles" onchange="this.form.submit()">${options}</select>
+      <noscript><button type="submit">Switch</button></noscript>
     </form>
     <details class="settings-group manage-profiles">
       <summary>Manage profiles</summary>
@@ -605,10 +610,251 @@ ${renderTopbar({ theme, returnTo: '/' })}
   return renderLayout({ title: 'Delete profile \u2014 OAuth2Helper', theme, bodyHtml: body });
 }
 
+// ---------------------------------------------------------------------
+// Browser-Only Test — OPTIONAL capability. Everything above this runs
+// through the server (no client JS at all, by design). This one
+// section is a deliberate, isolated exception: it runs Client
+// Credentials and Authorization Code + PKCE entirely from browser
+// JavaScript, bypassing this app's server, so you can see for yourself
+// what a public-client / pure-SPA implementation of these flows looks
+// like (and, for Client Credentials, hit the CORS wall most providers
+// put up against exactly that). It does not touch or replace any of
+// the server-mediated flows elsewhere in the app.
+// ---------------------------------------------------------------------
+
+function jsString(value) {
+  // Safe embedding of a server value as a JS string literal inside an
+  // inline <script> block — also neutralizes "</script>" break-out.
+  return JSON.stringify(String(value ?? '')).replace(/</g, '\\u003c');
+}
+
+const CLIENT_SCRIPT_HELPERS = `
+function b64url(buffer) {
+  var bytes = new Uint8Array(buffer), str = '';
+  for (var i = 0; i < bytes.byteLength; i++) str += String.fromCharCode(bytes[i]);
+  return btoa(str).replace(/\\+/g, '-').replace(/\\//g, '_').replace(/=+$/, '');
+}
+function escapeHtml(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+function showResult(el, status, bodyText) {
+  el.innerHTML = '<strong>HTTP ' + status + '</strong><pre>' + escapeHtml(bodyText) + '</pre>';
+}
+function showFetchError(el, err) {
+  el.innerHTML = '<strong>Request failed before any response was received.</strong> '
+    + 'This is almost always a CORS block \u2014 the browser refuses to hand JavaScript '
+    + 'even an error response for a blocked cross-origin request. Open DevTools \u2192 '
+    + 'Network tab to see the real CORS error; JS itself cannot read it.'
+    + '<pre>' + escapeHtml(err && err.message || String(err)) + '</pre>';
+}
+function logToServer(type, method, url, status, bodyText) {
+  // Self-reports this browser-only attempt so it shows up in the main
+  // page's Debug Trace too. The server never saw the actual request —
+  // this is just the browser telling it what happened, after the fact.
+  var params = new URLSearchParams();
+  params.set('type', type);
+  params.set('method', method);
+  params.set('url', url);
+  params.set('status', String(status));
+  params.set('responseBody', bodyText == null ? '' : String(bodyText));
+  fetch('/browser-test/log', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: params.toString()
+  }).catch(function() { /* logging is best-effort; ignore failures */ });
+}`;
+
+function renderBrowserTestPage(ctx) {
+  const { store, theme, browserCallbackUrl } = ctx;
+  const p = activeProfile(store);
+  const isCC = p && p.grantType === 'client_credentials';
+
+  const tokenUrlStr = p ? p.tokenUrl : '';
+
+  const ccScript = `
+(function(){
+  ${CLIENT_SCRIPT_HELPERS}
+  var btn = document.getElementById('cc-run-btn');
+  var out = document.getElementById('cc-result');
+  var tokenUrl = ${jsString(tokenUrlStr)};
+  btn.addEventListener('click', function() {
+    out.textContent = 'Requesting\u2026';
+    var params = new URLSearchParams();
+    params.set('grant_type', 'client_credentials');
+    params.set('client_id', ${jsString(p ? p.clientId : '')});
+    var secret = ${jsString(p ? p.clientSecret : '')};
+    if (secret) params.set('client_secret', secret);
+    var scope = ${jsString(p ? p.scope : '')};
+    if (scope) params.set('scope', scope);
+    fetch(tokenUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: params.toString()
+    }).then(function(resp) {
+      return resp.text().then(function(text) {
+        showResult(out, resp.status, text);
+        logToServer('browser_test_cc', 'POST', tokenUrl, resp.status, text);
+      });
+    }).catch(function(err) {
+      showFetchError(out, err);
+      logToServer('browser_test_cc', 'POST', tokenUrl, 0, (err && err.message) || String(err));
+    });
+  });
+})();`;
+
+  const pkceScript = `
+(function(){
+  ${CLIENT_SCRIPT_HELPERS}
+  document.getElementById('pkce-run-btn').addEventListener('click', function() {
+    var verifierBytes = new Uint8Array(32);
+    crypto.getRandomValues(verifierBytes);
+    var verifier = b64url(verifierBytes.buffer);
+    sessionStorage.setItem('oauth2helper_pkce_verifier', verifier);
+    sessionStorage.setItem('oauth2helper_pkce_tokenUrl', ${jsString(tokenUrlStr)});
+    sessionStorage.setItem('oauth2helper_pkce_clientId', ${jsString(p ? p.clientId : '')});
+    crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier)).then(function(digest) {
+      var challenge = b64url(digest);
+      var params = new URLSearchParams({
+        response_type: 'code',
+        client_id: ${jsString(p ? p.clientId : '')},
+        redirect_uri: ${jsString(browserCallbackUrl)},
+        scope: ${jsString(p ? p.scope : '')},
+        state: 'browsertest', // must match BROWSER_TEST_STATE in server.js — that's how /callback tells this apart from a normal server-mediated flow
+        code_challenge: challenge,
+        code_challenge_method: 'S256'
+      });
+      window.location.href = ${jsString(p ? p.authUrl : '')} + '?' + params.toString();
+    });
+  });
+})();`;
+
+  const ccSection = `
+  <section class="panel">
+    <h3>Client Credentials \u2014 from the browser</h3>
+    <p class="muted small">Sends <code>client_id</code> and <code>client_secret</code> directly
+      from this page's JavaScript to <code>${escapeHtml(tokenUrlStr || '(no token URL set)')}</code>.
+      Most providers (Okta included) block this via CORS by design.</p>
+    <button type="button" id="cc-run-btn">${icon('activity')} Run in browser</button>
+    <div id="cc-result" class="browser-test-result"></div>
+  </section>
+  <script>${ccScript}</script>`;
+
+  const pkceSection = `
+  <section class="panel">
+    <h3>Authorization Code + PKCE \u2014 from the browser</h3>
+    <p class="muted small">Generates the PKCE pair in your browser, redirects you to the
+      provider, and exchanges the code for a token via a direct browser
+      <code>fetch</code> on return &mdash; no client secret is sent, simulating a
+      public client. It shares the main app's own callback URL:</p>
+    <p><code>${escapeHtml(browserCallbackUrl)}</code></p>
+    <p class="muted small">So there's nothing extra to register &mdash; if the main app's
+      flow already works against this OAuth client, this will too. (The
+      server tells the two apart by the <code>state</code> value and hands this
+      one straight to a page that does the exchange in your browser instead
+      of on the server.)</p>
+    <button type="button" id="pkce-run-btn">${icon('activity')} Start in browser</button>
+  </section>
+  <script>${pkceScript}</script>`;
+
+  const noProfileNotice = !p ? `
+  <section class="panel"><p class="muted">No profile is set up yet \u2014 create one on the <a href="/">main page</a> first.</p></section>` : '';
+
+  const grantTypeNotice = p ? `
+    <p class="muted small">Showing the test that matches this profile's grant type
+      (<strong>${isCC ? 'Client Credentials' : 'Authorization Code'}</strong>). Switch the
+      grant type on the <a href="/">main page</a> and save to see the other one instead.</p>` : '';
+
+  const body = `
+${renderTopbar({ theme, returnTo: '/browser-test' })}
+<main class="single-column">
+  <a class="chevron-btn back-link" href="/">${icon('arrowLeft')} Back</a>
+  <section class="panel experimental-banner">
+    <h2>${icon('activity')} Browser-Only Test <span class="badge status-pending">optional</span></h2>
+    <p class="about-text">Everywhere else in this app, the actual OAuth HTTP calls happen on
+      the server (that's deliberate — it's how client_secret stays out of the
+      browser). This page is the one exception: it runs the token request
+      <strong>entirely in your browser's JavaScript</strong>, exactly like a public
+      client / pure SPA would, so you can see what that looks like &mdash; including
+      hitting the CORS wall providers put up against Client Credentials from a browser.
+      The result is self-reported back to the server afterward purely for logging, so
+      it also shows up in the <strong>Debug Trace</strong> on the main page (labeled as
+      browser-only) &mdash; the server still never actually makes or sees the request itself.
+      It uses the active profile's current settings
+      (<strong>${escapeHtml(p ? p.name : '')}</strong>) &mdash; edit those on the
+      <a href="/">main page</a> first if needed.</p>
+    ${grantTypeNotice}
+  </section>
+${noProfileNotice}${p ? (isCC ? ccSection : pkceSection) : ''}
+</main>`;
+
+  return renderLayout({ title: 'Browser-Only Test \u2014 OAuth2Helper', theme, bodyHtml: body });
+}
+
+function renderBrowserTestCallbackPage(ctx) {
+  const { theme } = ctx;
+  const script = `
+(function(){
+  ${CLIENT_SCRIPT_HELPERS}
+  var out = document.getElementById('pkce-callback-result');
+  var params = new URLSearchParams(window.location.search);
+  var code = params.get('code');
+  var error = params.get('error');
+  if (error) {
+    out.innerHTML = '<strong>Provider returned an error.</strong><pre>' + escapeHtml(error + (params.get('error_description') ? ' \u2014 ' + params.get('error_description') : '')) + '</pre>';
+    return;
+  }
+  if (!code) {
+    out.textContent = 'No authorization code in the callback URL.';
+    return;
+  }
+  var verifier = sessionStorage.getItem('oauth2helper_pkce_verifier');
+  var tokenUrl = sessionStorage.getItem('oauth2helper_pkce_tokenUrl');
+  var clientId = sessionStorage.getItem('oauth2helper_pkce_clientId');
+  if (!verifier || !tokenUrl) {
+    out.textContent = 'Missing PKCE session data \u2014 start this from the Browser-Only Test page, in this same browser tab.';
+    return;
+  }
+  var body = new URLSearchParams({
+    grant_type: 'authorization_code',
+    code: code,
+    redirect_uri: window.location.origin + window.location.pathname,
+    client_id: clientId,
+    code_verifier: verifier
+  });
+  out.textContent = 'Exchanging code for token\u2026';
+  fetch(tokenUrl, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: body.toString() })
+    .then(function(resp) {
+      return resp.text().then(function(text) {
+        showResult(out, resp.status, text);
+        logToServer('browser_test_pkce', 'POST', tokenUrl, resp.status, text);
+      });
+    })
+    .catch(function(err) {
+      showFetchError(out, err);
+      logToServer('browser_test_pkce', 'POST', tokenUrl, 0, (err && err.message) || String(err));
+    });
+})();`;
+
+  const body = `
+${renderTopbar({ theme, returnTo: '/browser-test' })}
+<main class="single-column">
+  <a class="chevron-btn back-link" href="/browser-test">${icon('arrowLeft')} Back to Browser-Only Test</a>
+  <section class="panel">
+    <h2>PKCE browser test \u2014 callback</h2>
+    <div id="pkce-callback-result" class="browser-test-result">Exchanging code for token\u2026</div>
+  </section>
+</main>
+<script>${script}</script>`;
+
+  return renderLayout({ title: 'Browser-Only Test callback \u2014 OAuth2Helper', theme, bodyHtml: body });
+}
+
 module.exports = {
   escapeHtml,
   renderHomePage,
   renderHelpPage,
   renderAboutPage,
   renderDeleteConfirmPage,
+  renderBrowserTestPage,
+  renderBrowserTestCallbackPage,
 };
