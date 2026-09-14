@@ -88,11 +88,29 @@ which most OAuth providers require for redirect URIs.
 > same route either way. Opening the URL in an actual browser tab
 > instead of the embedded preview avoids it entirely.
 
+### Do you even need ngrok?
+
+Probably not, for local dev. Both Okta and Keycloak generally accept
+`http://localhost:3000/callback` directly — Okta explicitly exempts
+`localhost` from its usual HTTPS-only rule for redirect URIs, and
+Keycloak typically doesn't enforce HTTPS for local/internal addresses
+either (governed by the realm's "Require SSL" setting, which normally
+only applies to external requests). So try registering
+`http://localhost:3000/callback` on your provider first and skip
+straight to [Quick start](#quick-start) — no tunnel needed.
+
+Reach for ngrok only if:
+- your specific Okta org or Keycloak realm has been locked down to
+  reject `http://localhost` anyway (some enterprise configurations do),
+- you want to test against a real external hostname to mirror
+  production more closely, or
+- you're not using Codespaces (which already gives you an HTTPS URL for
+  free) and hit an actual HTTPS requirement.
+
 ### Run locally via ngrok
 
-Most OAuth providers (Okta and Keycloak included) require an HTTPS
-redirect URI and won't accept `http://localhost`. If you're running
-outside Codespaces, expose your local server with [ngrok](https://ngrok.com/).
+If one of the above applies, expose your local server with
+[ngrok](https://ngrok.com/):
 
 #### Install ngrok
 
@@ -207,7 +225,9 @@ happens). Concretely:
 
 - **Running locally** (`npm start`, no tunnel) — register
   `http://localhost:3000/callback`, or whatever port you set via the
-  `PORT` environment variable.
+  `PORT` environment variable. This works directly on most providers,
+  Okta and Keycloak included — see [Do you even need
+  ngrok?](#do-you-even-need-ngrok) before reaching for a tunnel.
 - **Codespaces** — register the forwarded HTTPS URL Codespaces gives
   port 3000, with `/callback` appended.
 - **ngrok** — register the current
