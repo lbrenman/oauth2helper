@@ -170,6 +170,50 @@ placeholders. Its shape is:
 Each entry in `profiles` has the fields from the table above, plus
 `id` (generated, don't edit) and `name` (shown in the dropdown).
 
+## Redirect URI
+
+This is the field people most often get stuck on, so it gets its own
+section. The redirect URI (a.k.a. callback URL) is where the provider
+sends the browser back to after the user logs in, with an authorization
+code attached — it only applies to **Authorization Code**; Client
+Credentials has no browser step and doesn't use one at all.
+
+### Finding it
+
+Leave the Redirect URI field blank and the app computes one
+automatically from its own current running URL, showing it right there
+as a hint (e.g. `http://localhost:3000/callback`, or the current
+Codespaces/ngrok URL if that's how you're running it) — that's exactly
+the value it sends when it builds the authorize request, so there's
+nothing to look up separately. If a saved value goes stale (say, after
+restarting an ngrok tunnel), click **Use detected URL** to clear it and
+pick up the fresh one on the next page load.
+
+### Registering it with your provider
+
+Register whatever value the app shows as an allowed redirect URI on the
+OAuth client — scheme, host, port, path, and trailing slash all matter;
+a mismatch here is one of the most common causes of a failed exchange
+(the trace log's "Likely causes" hints will point this out if it
+happens). Concretely:
+
+- **Running locally** (`npm start`, no tunnel) — register
+  `http://localhost:3000/callback`, or whatever port you set via the
+  `PORT` environment variable.
+- **Codespaces** — register the forwarded HTTPS URL Codespaces gives
+  port 3000, with `/callback` appended.
+- **ngrok** — register the current
+  `https://<random>.ngrok-free.app/callback`; see [Run locally via
+  ngrok](#run-locally-via-ngrok) above. This changes every time you
+  restart a free-tier tunnel, so you'll re-register it each session.
+
+See the Okta-specific and Keycloak-specific notes below for exactly
+where in each provider's console this setting lives.
+
+The optional [Browser-Only Test](#deliberate-exception-browser-only-test)
+page's PKCE flow reuses this same `/callback` URL rather than needing
+its own registered separately.
+
 ## Okta-specific notes
 
 - **Grant types** must be explicitly enabled on the app integration:
