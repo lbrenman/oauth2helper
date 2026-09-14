@@ -28,16 +28,29 @@ function maskObject(obj) {
 
 function maskFormBody(bodyStr) {
   if (!bodyStr) return bodyStr;
-  try {
-    const params = new URLSearchParams(bodyStr);
-    const masked = new URLSearchParams();
-    for (const [k, v] of params.entries()) {
-      masked.set(k, SENSITIVE_KEYS.includes(k) ? maskValue(v) : v);
-    }
-    return masked.toString();
-  } catch {
+  // Only touch this if it genuinely looks like an
+  // application/x-www-form-urlencoded string (key=value&key=value...).
+  // Anything else — plain informational text, a JSON post-token body,
+  // free-form text — is left completely untouched. Previously this
+  // always ran the string through URLSearchParams, which silently
+  // mangled non-form text (e.g. turned "PKCE not used" into
+  // "PKCE+not+used=").
+  if (!/^[^=&\s]+=[^&]*(&[^=&\s]+=[^&]*)*$/.test(bodyStr)) {
     return bodyStr;
   }
+  // Mask sensitive values in place, pair by pair, rather than round-
+  // tripping the whole string through URLSearchParams (which would
+  // re-encode every value and could alter formatting of the rest).
+  return bodyStr.split('&').map((pair) => {
+    const eq = pair.indexOf('=');
+    if (eq === -1) return pair;
+    const rawKey = pair.slice(0, eq);
+    const key = decodeURIComponent(rawKey.replace(/\+/g, ' '));
+    if (!SENSITIVE_KEYS.includes(key)) return pair;
+    const rawValue = pair.slice(eq + 1);
+    const value = decodeURIComponent(rawValue.replace(/\+/g, ' '));
+    return `${rawKey}=${encodeURIComponent(maskValue(value))}`;
+  }).join('&');
 }
 
 /**

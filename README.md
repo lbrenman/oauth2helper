@@ -183,6 +183,9 @@ Each entry in `profiles` has the fields from the table above, plus
 - Okta generally **requires PKCE** for public clients (no client secret).
 - Custom scopes must exist on the relevant Authorization Server and be
   granted to the app.
+- Setting up Okta from scratch: [Set up Okta for OAuth API access](https://developer.okta.com/docs/guides/set-up-oauth-api/main/)
+  (official) or [Use Okta for OAuth API Authentication](https://gist.github.com/lbrenman/b34f143aa6edca868db74396c7092b48#file-amplify-integration-use-okta-for-oauth-api-authentication-md)
+  (condensed walkthrough).
 
 ## Keycloak-specific notes
 
@@ -198,6 +201,9 @@ Each entry in `profiles` has the fields from the table above, plus
   `S256`, makes PKCE mandatory for that client.
 - Token/authorize endpoints follow the pattern
   `/realms/{realm}/protocol/openid-connect/{token|auth}`.
+- Setting up Keycloak from scratch: [OIDC Clients](https://www.keycloak.org/docs/latest/server_admin/#_oidc_clients)
+  (official Server Administration Guide) or [Use PhaseTwo Managed Keycloak for OAuth API Authentication](https://gist.github.com/lbrenman/69317b109e0db85771ae29a2fab890c8)
+  (condensed walkthrough).
 
 ## Project structure
 
@@ -218,10 +224,21 @@ settings.example.json     Template — copy to settings.json and fill in real va
 - [PKCE — RFC 7636](https://datatracker.ietf.org/doc/html/rfc7636)
 - [Bearer Token Usage — RFC 6750](https://datatracker.ietf.org/doc/html/rfc6750)
 - [OAuth 2.0 Dynamic Client Registration — RFC 7591](https://datatracker.ietf.org/doc/html/rfc7591)
-  (not yet implemented here — on the roadmap for auto-registering a
-  test client instead of configuring one by hand)
+  (not implemented as a feature here — on the roadmap for auto-registering
+  a test client instead of configuring one by hand. In the meantime, the
+  in-app Settings Help page has copy-pasteable `curl` commands and auth
+  setup steps for registering a client by hand against both Okta and
+  Keycloak.)
 - [What is OAuth 2.0? (oauth.net)](https://oauth.net/2/) — plain-language
   overview if you want the background before diving into the specs.
+
+> Provider-specific details throughout this README and the in-app
+> Settings Help page — endpoints, header names, required scopes, admin
+> console paths — reflect Okta's and Keycloak's published documentation
+> as of **September 14, 2026**. Identity providers evolve their APIs and
+> consoles over time, so if something here doesn't match what you see,
+> trust your provider's current docs over this snapshot and treat the
+> mismatch as a sign something changed upstream, not a bug in this app.
 
 ## No client-side JavaScript
 

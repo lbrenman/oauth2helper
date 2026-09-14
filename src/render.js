@@ -49,15 +49,31 @@ function renderTopbar({ theme, returnTo }) {
     <h1><a href="/">OAuth2Helper</a></h1>
     <span class="tagline">Postman meets SAML&#8209;tracer, for OAuth 2.0</span>
   </div>
-  <nav class="topbar-right">
-    <a class="chevron-btn" href="https://oauth.net/2/" target="_blank" rel="noopener">What is OAuth 2.0?</a>
-    <a class="chevron-btn" href="https://datatracker.ietf.org/doc/html/rfc6749" target="_blank" rel="noopener">RFC 6749</a>
-    <a class="chevron-btn" href="https://datatracker.ietf.org/doc/html/rfc7636" target="_blank" rel="noopener">RFC 7636 (PKCE)</a>
-    <a class="chevron-btn" href="https://datatracker.ietf.org/doc/html/rfc7591" target="_blank" rel="noopener">RFC 7591 (DCR)</a>
-    <a class="chevron-btn" href="https://datatracker.ietf.org/doc/html/rfc6750" target="_blank" rel="noopener">RFC 6750 (Bearer)</a>
+  <div class="topbar-center">
     <a class="chevron-btn experimental" href="/browser-test" title="Optional: test Client Credentials / Auth Code+PKCE directly from browser JS, bypassing this app's server">${icon('activity')} Browser-Only Test</a>
-    <a class="chevron-btn" href="/about">${icon('info')} About</a>
-    <a class="chevron-btn" href="/help">${icon('helpCircle')} Settings Help</a>
+  </div>
+  <nav class="topbar-right">
+    <select class="picker-select" title="Reference docs and in-app help"
+      onchange="var v=this.value; if(!v) return; if(v.indexOf('http')===0){ window.open(v,'_blank','noopener'); this.selectedIndex=0; } else { window.location.href=v; }">
+      <option value="" selected disabled>Docs &amp; Help</option>
+      <optgroup label="This app">
+        <option value="/about">About this app</option>
+        <option value="/help">Settings Help (what each field means)</option>
+      </optgroup>
+      <optgroup label="OAuth 2.0 specs">
+        <option value="https://oauth.net/2/">What is OAuth 2.0?</option>
+        <option value="https://datatracker.ietf.org/doc/html/rfc6749">OAuth 2.0 (RFC 6749)</option>
+        <option value="https://datatracker.ietf.org/doc/html/rfc7636">PKCE (RFC 7636)</option>
+        <option value="https://datatracker.ietf.org/doc/html/rfc7591">Dynamic Client Registration (RFC 7591)</option>
+        <option value="https://datatracker.ietf.org/doc/html/rfc6750">Bearer Tokens (RFC 6750)</option>
+      </optgroup>
+      <optgroup label="Provider setup guides">
+        <option value="https://developer.okta.com/docs/guides/set-up-oauth-api/main/">Okta: Set up OAuth API access (official)</option>
+        <option value="https://www.keycloak.org/docs/latest/server_admin/#_oidc_clients">Keycloak: OIDC Clients (official)</option>
+        <option value="https://gist.github.com/lbrenman/b34f143aa6edca868db74396c7092b48#file-amplify-integration-use-okta-for-oauth-api-authentication-md">Use Okta for OAuth API Authentication (gist)</option>
+        <option value="https://gist.github.com/lbrenman/69317b109e0db85771ae29a2fab890c8">Use PhaseTwo Managed Keycloak for OAuth API Authentication (gist)</option>
+      </optgroup>
+    </select>
     <a class="chevron-btn" href="/theme/toggle?return=${encodeURIComponent(returnTo || '/')}" title="Switch to ${themeLabel === 'Light' ? 'dark' : 'light'} mode">${themeIcon}</a>
   </nav>
 </header>`;
@@ -215,32 +231,35 @@ function renderProfileBar(store) {
   const active = store.profiles.find((p) => p.id === store.activeProfileId);
   const canDelete = store.profiles.length > 1;
   return `
-    <form method="post" action="/profiles/switch" class="profile-bar">
-      <select name="profileId" title="Switch between saved settings profiles" onchange="this.form.submit()">${options}</select>
-      <noscript><button type="submit">Switch</button></noscript>
-    </form>
-    <details class="settings-group manage-profiles">
-      <summary>Manage profiles</summary>
-      <div class="group-body">
-        <form method="post" action="/profiles/new" class="inline-form">
-          <input type="text" name="name" placeholder="New profile name" required />
-          <button type="submit">${icon('plus')} Create</button>
-        </form>
-        <form method="post" action="/profiles/duplicate" class="inline-form">
-          <input type="text" name="name" value="${attr(active ? active.name + ' copy' : '')}" placeholder="Duplicate as..." required />
-          <button type="submit">${icon('copy')} Duplicate current</button>
-        </form>
-        <form method="post" action="/profiles/rename" class="inline-form">
-          <input type="text" name="name" value="${attr(active ? active.name : '')}" placeholder="Rename current to..." required />
-          <button type="submit">${icon('edit')} Rename current</button>
-        </form>
-        <div class="button-row">
-          ${canDelete
-            ? `<a class="chevron-btn danger" href="/profiles/delete-confirm">${icon('trash')} Delete current profile</a>`
-            : `<span class="muted small">Can't delete the only remaining profile.</span>`}
+    <div class="profile-picker">
+      <label class="profile-picker-label">Profile</label>
+      <form method="post" action="/profiles/switch" class="profile-bar">
+        <select name="profileId" title="Switch between saved settings profiles" onchange="this.form.submit()">${options}</select>
+        <noscript><button type="submit">Switch</button></noscript>
+      </form>
+      <details class="manage-profiles">
+        <summary>${icon('edit', 13)} Manage profiles (new, duplicate, rename, delete)</summary>
+        <div class="manage-profiles-body">
+          <form method="post" action="/profiles/new" class="inline-form">
+            <input type="text" name="name" placeholder="New profile name" required />
+            <button type="submit">${icon('plus')} Create</button>
+          </form>
+          <form method="post" action="/profiles/duplicate" class="inline-form">
+            <input type="text" name="name" value="${attr(active ? active.name + ' copy' : '')}" placeholder="Duplicate as..." required />
+            <button type="submit">${icon('copy')} Duplicate current</button>
+          </form>
+          <form method="post" action="/profiles/rename" class="inline-form">
+            <input type="text" name="name" value="${attr(active ? active.name : '')}" placeholder="Rename current to..." required />
+            <button type="submit">${icon('edit')} Rename current</button>
+          </form>
+          <div class="button-row">
+            ${canDelete
+              ? `<a class="chevron-btn danger" href="/profiles/delete-confirm">${icon('trash')} Delete current profile</a>`
+              : `<span class="muted small">Can't delete the only remaining profile.</span>`}
+          </div>
         </div>
-      </div>
-    </details>`;
+      </details>
+    </div>`;
 }
 
 function entryOutcome(e) {
@@ -380,22 +399,29 @@ ${renderTopbar({ theme, returnTo: '/' })}
     ${renderProfileBar(store)}
 
     <form method="post" action="/profile/save" class="settings-form">
+      <div class="action-bar">
+        <div class="button-row">
+          <button type="submit" formaction="/token/get" class="primary large">Get Token</button>
+          <button type="submit" formaction="/token/refresh" ${hasRefreshToken ? '' : 'disabled'}>Refresh Token</button>
+          <button type="submit" formaction="/token/post-call" ${hasPostTokenUrl ? '' : 'disabled'}>Re-run Post-Token Call</button>
+        </div>
+
+        <h2 style="margin-top:16px">Current Token</h2>
+        <div class="token-panel">
+          ${renderTokenPanel(token, reveal, currentPath)}
+          ${token ? `<div class="button-row" style="margin-top:8px"><button type="submit" formaction="/token/clear" formnovalidate>Clear token</button></div>` : ''}
+        </div>
+      </div>
+
+      <div class="section-divider"><span>Configure &ldquo;${escapeHtml(p ? p.name : '')}&rdquo;</span></div>
+
       ${renderSettingsGroups(p, renderCtx)}
-      <div class="button-row" style="margin-top:12px">
+
+      <div class="button-row" style="margin-top:14px">
         <button type="submit" formaction="/profile/save" class="primary">Save Profile</button>
-        <button type="submit" formaction="/token/get" class="primary large">Get Token</button>
-        <button type="submit" formaction="/token/refresh" ${hasRefreshToken ? '' : 'disabled'}>Refresh Token</button>
-        <button type="submit" formaction="/token/post-call" ${hasPostTokenUrl ? '' : 'disabled'}>Re-run Post-Token Call</button>
+        <span class="muted small">Get Token (above) saves automatically too \u2014 this is only for saving without running anything.</span>
       </div>
     </form>
-
-    <hr />
-
-    <h2>Current Token</h2>
-    <div class="token-panel">
-      ${renderTokenPanel(token, reveal, currentPath)}
-      ${token ? `<form method="post" action="/token/clear" style="margin-top:8px"><button type="submit">Clear token</button></form>` : ''}
-    </div>
   </section>
 
   <section class="panel trace-panel">
@@ -425,6 +451,33 @@ function renderHelpPage(ctx) {
 ${renderTopbar({ theme: ctx.theme, returnTo: '/help' })}
 <main class="single-column">
   <a class="chevron-btn back-link" href="/">${icon('arrowLeft')} Back</a>
+
+  <section class="panel">
+    <h2>Setup guides &amp; resources</h2>
+    <p class="about-text">Haven't created an OAuth client on your provider yet? Start here, then
+      come back down to the field-by-field reference below.</p>
+    <div class="help-grid">
+      <div class="help-block">
+        <h3>Okta</h3>
+        <dl>
+          <dt><a href="https://developer.okta.com/docs/guides/set-up-oauth-api/main/" target="_blank" rel="noopener">Set up Okta for OAuth API access (official)</a></dt>
+          <dd>Okta's own walkthrough for creating an OIDC app integration and using it with the Authorization Code grant.</dd>
+          <dt><a href="https://gist.github.com/lbrenman/b34f143aa6edca868db74396c7092b48#file-amplify-integration-use-okta-for-oauth-api-authentication-md" target="_blank" rel="noopener">Use Okta for OAuth API Authentication (gist)</a></dt>
+          <dd>A more opinionated, condensed walkthrough covering the same setup.</dd>
+        </dl>
+      </div>
+      <div class="help-block">
+        <h3>Keycloak</h3>
+        <dl>
+          <dt><a href="https://www.keycloak.org/docs/latest/server_admin/#_oidc_clients" target="_blank" rel="noopener">OIDC Clients (official Server Administration Guide)</a></dt>
+          <dd>Keycloak's own reference for creating and configuring an OpenID Connect client.</dd>
+          <dt><a href="https://gist.github.com/lbrenman/69317b109e0db85771ae29a2fab890c8" target="_blank" rel="noopener">Use PhaseTwo Managed Keycloak for OAuth API Authentication (gist)</a></dt>
+          <dd>A more opinionated, condensed walkthrough covering the same setup, for PhaseTwo's managed Keycloak.</dd>
+        </dl>
+      </div>
+    </div>
+  </section>
+
   <section class="panel">
     <h2>Settings reference &mdash; what each field means and where to find it</h2>
     <div class="help-grid">
@@ -518,6 +571,89 @@ ${renderTopbar({ theme: ctx.theme, returnTo: '/help' })}
       </div>
 
     </div>
+  </section>
+
+  <section class="panel">
+    <h2>Dynamic Client Registration (DCR) &mdash; Okta &amp; Keycloak</h2>
+    <p class="about-text">This app doesn't do DCR itself yet (see the RFC 7591 link in the
+      header &mdash; it's on the roadmap). In the meantime, here's how to register
+      a client by hand with <code>curl</code> against each provider, so you don't
+      have to click through the admin console. Whatever <code>client_id</code> /
+      <code>client_secret</code> comes back can go straight into a profile on the
+      <a href="/">main page</a>.</p>
+
+    <h3 class="dcr-heading">Keycloak</h3>
+    <p class="muted small">Keycloak's DCR endpoint accepts a lightweight, purpose-built
+      <strong>Initial Access Token</strong> &mdash; scoped just to registration, with its
+      own expiry and a cap on how many clients it can create. That makes it reasonable
+      to hand out for short-lived or CI use, unlike Okta's approach below.</p>
+    <ol class="about-steps">
+      <li>Generate the token: Admin Console &rarr; select your realm &rarr; <strong>Clients</strong>
+        &rarr; <strong>Initial access tokens</strong> tab (older versions: <strong>Realm settings</strong>
+        &rarr; <strong>Client registration</strong>) &rarr; <strong>Create</strong>. Set an expiration
+        and a max client count, then copy the token &mdash; it's shown only once.</li>
+      <li>Register the client:</li>
+    </ol>
+    <pre class="help-code">curl -X POST "https://&lt;keycloak-host&gt;/realms/&lt;realm&gt;/clients-registrations/openid-connect" \\
+  -H "Authorization: Bearer &lt;INITIAL_ACCESS_TOKEN&gt;" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "client_name": "OAuth2Helper test client",
+    "redirect_uris": ["http://localhost:3000/callback"],
+    "grant_types": ["authorization_code", "refresh_token"],
+    "response_types": ["code"],
+    "token_endpoint_auth_method": "none"
+  }'</pre>
+    <p class="muted small"><code>token_endpoint_auth_method</code>: <code>"none"</code> registers a
+      public client (pairs with PKCE &mdash; matches this app's Authorization Code + PKCE profile
+      type); use <code>"client_secret_basic"</code> or <code>"client_secret_post"</code> instead for a
+      confidential client, or <code>"grant_types": ["client_credentials"]</code> with no
+      <code>redirect_uris</code> at all for a Client Credentials profile. The response includes
+      <code>client_id</code> (and <code>client_secret</code>, for confidential clients) plus a
+      <code>registration_access_token</code> &mdash; save that too if you'll want to read, update, or
+      delete this specific client later via
+      <code>.../clients-registrations/openid-connect/&lt;client_id&gt;</code>.</p>
+
+    <h3 class="dcr-heading">Okta</h3>
+    <p class="muted small">Okta's DCR endpoint doesn't use the initial-access-token pattern at
+      all &mdash; it requires you to already be authenticated as an Okta admin, either with an
+      API token or a scoped OAuth access token. It's really "provision an app via API" more
+      than public self-registration.</p>
+    <ol class="about-steps">
+      <li>Get credentials, either:
+        <ul>
+          <li><strong>API token</strong> (simplest for manual testing, but unscoped &mdash; full admin
+            access): Admin Console &rarr; <strong>Security</strong> &rarr; <strong>API</strong> &rarr;
+            <strong>Tokens</strong> &rarr; <strong>Create Token</strong>. Send it as
+            <code>Authorization: SSWS &lt;token&gt;</code>.</li>
+          <li>or a <strong>scoped OAuth access token</strong>: create an Okta Service App, request a
+            token from the <strong>org</strong> authorization server (<code>/oauth2/v1/token</code> &mdash;
+            custom authorization servers don't support Okta management scopes) with
+            <code>scope=okta.clients.register</code> (or <code>okta.clients.manage</code> for full
+            CRUD), then send it as <code>Authorization: Bearer &lt;token&gt;</code>.</li>
+        </ul>
+      </li>
+      <li>Register the client:</li>
+    </ol>
+    <pre class="help-code">curl -i -X POST 'https://{yourOktaDomain}/oauth2/v1/clients' \\
+  -H 'Authorization: SSWS {api_token}' \\
+  -H 'Content-Type: application/json' \\
+  -d '{
+    "client_name": "OAuth2Helper test client",
+    "application_type": "web",
+    "redirect_uris": ["http://localhost:3000/callback"],
+    "response_types": ["code"],
+    "grant_types": ["authorization_code", "refresh_token"],
+    "token_endpoint_auth_method": "client_secret_basic"
+  }'</pre>
+    <p class="muted small">The registered client shows up as a regular app under
+      <strong>Applications</strong> in the Admin Console (changes made either way stay in sync).
+      <code>client_id</code> is assigned by Okta and can't be chosen. For a Client Credentials
+      profile, use <code>"grant_types": ["client_credentials"]</code>, drop
+      <code>redirect_uris</code>, and note that Okta generally requires PKCE for public clients
+      but Client Credentials is always confidential, so keep
+      <code>token_endpoint_auth_method</code> as <code>client_secret_basic</code> or
+      <code>client_secret_post</code>.</p>
   </section>
 </main>`;
   return renderLayout({ title: 'Settings Help \u2014 OAuth2Helper', theme: ctx.theme, bodyHtml: body });
