@@ -76,9 +76,17 @@ which saves and runs in one step).
 
 Click the badge above, or go to **Code → Codespaces → Create codespace**
 on this repo. The devcontainer runs `npm install` automatically; once
-it's up, run `npm start` in the terminal and open the forwarded port
-3000 URL (Codespaces serves it over HTTPS, which most OAuth providers
-require for redirect URIs).
+it's up, run `npm start` in the terminal, then use **"Open in Browser"**
+from the Ports panel (not the embedded preview) to open the forwarded
+port 3000 URL in a real browser tab — Codespaces serves it over HTTPS,
+which most OAuth providers require for redirect URIs.
+
+> If a URL like `https://<name>-3000.app.github.dev/` (with a trailing
+> slash) doesn't load, drop the trailing slash. This is a quirk of
+> VS Code's embedded "Simple Browser" preview / Codespaces' forwarding
+> proxy, not this app — the server treats `/` and no path as the exact
+> same route either way. Opening the URL in an actual browser tab
+> instead of the embedded preview avoids it entirely.
 
 ### Run locally via ngrok
 

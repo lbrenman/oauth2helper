@@ -6,8 +6,8 @@
   "portsAttributes": {
     "3000": {
       "label": "OAuth2Helper",
-      "onAutoForward": "openPreview"
+      "onAutoForward": "notify"
     }
   },
-  "postStartCommand": "echo 'Run: npm start (or npm run dev), then open the forwarded port-3000 URL. Copy settings.example.json to settings.json to get started.'"
+  "postStartCommand": "echo 'Run: npm start (or npm run dev). When port 3000 is detected, use \"Open in Browser\" from the Ports panel (not the embedded preview) to open it in a real browser tab. Copy settings.example.json to settings.json to get started.'"
 }
