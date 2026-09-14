@@ -8,12 +8,8 @@ Configure a client, run a flow end-to-end, and inspect every
 request/response along the way, including plain-English guesses at what
 went wrong when it fails.
 
-**Architecture note:** this is a classic server-rendered, multi-page
-app. Every action — switching a profile, expanding a trace entry,
-saving settings, getting a token — is a plain HTML `<form>` POST or
-link, and the server renders a full page back. **There is no
-client-side JavaScript at all.** See [No client-side
-JavaScript](#no-client-side-javascript) below for what that trades off.
+It's a server-rendered, multi-page app rather than a single-page JS app
+— see [Architecture](#architecture) below for what that means and why.
 
 > Replace `lbrenman/oauth2helper` in the badge above with your actual
 > `owner/repo` once this is pushed to GitHub, if it differs.
@@ -240,11 +236,11 @@ settings.example.json     Template — copy to settings.json and fill in real va
 > trust your provider's current docs over this snapshot and treat the
 > mismatch as a sign something changed upstream, not a bug in this app.
 
-## No client-side JavaScript
+## Architecture
 
-Every page is rendered fully on the server (`src/render.js`) and every
-interaction is a plain `<form>` POST or a link, following the classic
-Post/Redirect/Get pattern — there's no `fetch`, no client state, and
+Every page is rendered fully on the server (`src/render.js`) and almost
+every interaction is a plain `<form>` POST or a link, following the
+classic Post/Redirect/Get pattern — there's no client-side state and
 nothing in `localStorage`. Concretely:
 
 - **Profile switching, save, new/duplicate/rename/delete** are all form
@@ -254,23 +250,31 @@ nothing in `localStorage`. Concretely:
 - **Theme** is a cookie flipped by a link (`/theme/toggle`).
 - **Reveal secrets** and **Expand/Collapse all groups** are plain query
   parameters on `/` (`?reveal=1`, `?groups=open`), toggled via links.
+  The app starts fully collapsed on a plain visit, on purpose, so the
+  first screen is clean rather than a wall of open fields.
 - **Get Token** for the Authorization Code flow is a real HTTP 302
   redirect straight from the form's POST handler to the provider — the
   same round trip a JS app would do with `window.location`, just
   without the JS.
 
-The one real trade-off: **changing the grant type doesn't instantly
-show or hide the PKCE / Redirect URI fields.** A JS app can react to a
-dropdown change immediately; here, the fields update the next time the
-page renders — i.e. right after you click **Save Profile** or **Get
-Token**, both of which apply the Client-Credentials field-clearing
-rule before rendering the page back. In practice that's one extra
-click, and it's the only spot where the no-JS constraint is visible.
+Two spots use a one-line `onchange` as a progressive-enhancement
+convenience, not app logic: switching a profile submits its `<select>`
+immediately instead of needing a separate button, and the "Docs & Help"
+dropdown navigates on selection. Neither fetches anything or holds
+state — with JS disabled, the profile switcher falls back to a visible
+button (`<noscript>`) and the dropdown just doesn't navigate. Beyond
+that, the only real trade-off is: **changing the grant type doesn't
+instantly show or hide the PKCE / Redirect URI fields.** A JS app can
+react to a dropdown change immediately; here, the fields update the
+next time the page renders — i.e. right after you click **Save
+Profile** or **Get Token**, both of which apply the Client-Credentials
+field-clearing rule before rendering the page back. In practice that's
+one extra click.
 
-### Optional exception: Browser-Only Test
+### Deliberate exception: Browser-Only Test
 
-**Browser-Only Test** (linked in the top bar) is a deliberate, isolated
-exception to the no-JS rule above. It runs Client Credentials and
+**Browser-Only Test** (linked in the top bar) is a separate, isolated
+exception to all of the above. It runs Client Credentials and
 Authorization Code + PKCE **entirely in your browser's own
 JavaScript**, bypassing this app's server completely — the same way a
 real public-client SPA would implement these flows itself, with no

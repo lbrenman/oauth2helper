@@ -375,9 +375,11 @@ function renderHomePage(ctx) {
   const currentPath = '/' + (Object.keys(query).length ? '?' + new URLSearchParams(query).toString() : '');
   const reveal = query.reveal === '1';
 
-  const groupsOpen = new Set(['provider', 'endpoints', 'credentials', 'flow', 'redirect']);
-  if (query.groups === 'open') ['provider', 'endpoints', 'credentials', 'flow', 'redirect', 'advanced', 'posttoken'].forEach((k) => groupsOpen.add(k));
-  if (query.groups === 'closed') groupsOpen.clear();
+  // Collapsed by default on a plain visit — a clean startup screen, with
+  // Expand all / individual groups / all-open (?groups=open) available
+  // on demand rather than showing a wall of open fields immediately.
+  const ALL_GROUPS = ['provider', 'endpoints', 'credentials', 'flow', 'redirect', 'advanced', 'posttoken'];
+  const groupsOpen = new Set(query.groups === 'open' ? ALL_GROUPS : []);
 
   const renderCtx = { detectedCallbackUrl, groupsOpen };
 
